@@ -1,0 +1,8 @@
+{
+  "name": "Remix QUẢN LÝ LỚP HỌC – GVCN",
+  "description": "Trợ lý quản lý lớp học số toàn diện dành cho Giáo viên chủ nhiệm và Ban cán sự lớp, tự động hóa thi đua, điểm danh, nề nếp và tổng kết tuần.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

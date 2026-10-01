@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <script>
+      (function() {
+        try {
+          var realFetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return realFetch;
+            },
+            set: function(fn) {
+              realFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          // Ignore if cannot redefine
+        }
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QUẢN LÝ LỚP HỌC – GVCN</title>
+    <meta name="description" content="Trợ lý quản lý lớp học số toàn diện dành cho Giáo viên chủ nhiệm và Ban cán sự lớp, tự động hóa thi đua, điểm danh, nề nếp và tổng kết tuần." />
+    <meta property="og:title" content="QUẢN LÝ LỚP HỌC – GVCN" />
+    <meta property="og:description" content="Trợ lý quản lý lớp học số toàn diện dành cho Giáo viên chủ nhiệm và Ban cán sự lớp, tự động hóa thi đua, điểm danh, nề nếp và tổng kết tuần." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800;900&family=Nunito:wght@800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&display=swap&subset=vietnamese" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 font-['Be_Vietnam_Pro',sans-serif] antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
