@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Student, AccountUser, ClassInfo } from '../types';
+import { generateStudentUsername, DEFAULT_STUDENT_PIN } from './roleHierarchy';
 
 export interface ParsedExcelStudent {
   studentCode: string;
@@ -495,9 +496,11 @@ export function parseStudentsFromExcel(
       // Notes
       const teacherNotes = colMap['notes'] !== undefined ? String(row[colMap['notes']] || '').trim() : '';
 
-      // Username & Pin
+      // Username & Pin: Tự động tạo tên tài khoản chuẩn (Tên HS không dấu + Mã HS) và mật khẩu 123456
       const rawUsername = colMap['username'] !== undefined ? String(row[colMap['username']] || '').trim() : '';
       const rawPin = colMap['pin'] !== undefined ? String(row[colMap['pin']] || '').trim() : '';
+      const autoUsername = rawUsername || generateStudentUsername(fullName, studentCode);
+      const autoPin = rawPin || DEFAULT_STUDENT_PIN;
 
       // Check match with existing students
       const codeMatch = codeMap.get(studentCode.toLowerCase());
@@ -517,8 +520,8 @@ export function parseStudentsFromExcel(
         parentPhone,
         address,
         teacherNotes,
-        username: rawUsername || undefined,
-        pin: rawPin || undefined,
+        username: autoUsername,
+        pin: autoPin,
         isExistingMatch: !!matched,
         matchedStudentId: matched?.id,
         matchedBy: codeMatch ? 'code' : nameMatch ? 'name' : undefined,

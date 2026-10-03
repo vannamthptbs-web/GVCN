@@ -16,7 +16,6 @@ import { AccountManagementModal } from './components/AccountManagementModal';
 import { LoginModal } from './components/LoginModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { ChangeAvatarModal } from './components/ChangeAvatarModal';
-import { GoogleSheetsSyncConfirmation } from './components/common/GoogleSheetsSyncConfirmation';
 
 // Views
 import { DashboardView } from './components/views/DashboardView';
@@ -131,7 +130,6 @@ const MainLayout: React.FC = () => {
       <LoginModal />
       <ChangePasswordModal />
       <ChangeAvatarModal />
-      <GoogleSheetsSyncConfirmation />
     </div>
   );
 };

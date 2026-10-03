@@ -724,22 +724,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isRemotePullingRef.current) return;
     hasPendingLocalUserChangesRef.current = true;
 
-    // Hiển thị thông báo đang lưu cho GVCN hoặc Ban cán sự lớp khi có thay đổi
-    const isCadreOrTeacher = isHomeroomTeacher(currentUserRole.role) || isClassCadre(currentUserRole.role) || isClassAdmin(currentUserRole.role);
-    if (isCadreOrTeacher) {
-      const actionTitle = actionContext?.action || lastActionRef.current?.action || 'Thay đổi dữ liệu';
-      const targetDetail = actionContext?.target || lastActionRef.current?.target || '';
-      setSyncNotification({
-        visible: true,
-        status: 'saving',
-        title: 'Đang tự động lưu lên Google Sheets...',
-        message: targetDetail ? `${actionTitle}: ${targetDetail}` : `Đang lưu các thay đổi của ${actionTitle}...`,
-        actor: `${currentUserRole.title} (${currentUserRole.name})`,
-        timestamp: new Date().toLocaleTimeString('vi-VN'),
-        actionDetails: targetDetail ? `${actionTitle} - ${targetDetail}` : actionTitle,
-        spreadsheetUrl: googleSheetsConfig.spreadsheetUrl,
-      });
-    }
+    // Bỏ thông báo đang lưu lên Google Sheets gây gián đoạn theo yêu cầu người dùng
+    // Việc lưu tự động diễn ra êm ái, yên lặng dưới nền
 
     // If currently syncing over network, mark queue so it triggers immediately after
     if (isSyncingRef.current) {
@@ -820,7 +806,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           studentAccountsMap.get(s.fullName.toLowerCase().trim());
 
         const accInfo = mapRoleInClassToAccountInfo(s.roleInClass, s.groupId);
-        const baseUsername = generateStudentUsername(s.fullName, s.roleInClass, s.groupId);
+        const baseUsername = s.customUsername || generateStudentUsername(s.fullName, s.studentCode);
 
         let finalUsername = baseUsername;
         let suffix = 2;
@@ -1869,10 +1855,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const accInfo = mapRoleInClassToAccountInfo(newStudent.roleInClass, newStudent.groupId);
 
     const chosenUsername = (studentData.customUsername || '').trim() ||
-      generateStudentUsername(newStudent.fullName, newStudent.roleInClass, newStudent.groupId) ||
+      generateStudentUsername(newStudent.fullName, newStudent.studentCode) ||
       `hs_${cleanCodeStr}`;
-    const chosenPin = (studentData.customPin || '').trim() || '123';
-    const isCustom = chosenPin !== '123';
+    const chosenPin = (studentData.customPin || '').trim() || DEFAULT_STUDENT_PIN || '123456';
+    const isCustom = chosenPin !== '123456' && chosenPin !== '123';
 
     const newAccount: AccountUser = {
       id: `acc_${newStudent.id}`,
@@ -2153,28 +2139,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const permanentPins = JSON.parse(localStorage.getItem('teacher_app_permanent_pins') || '{}');
     let pinsUpdated = false;
 
+    const newAccountsToCreate: AccountUser[] = [];
+
     const formattedList: Student[] = newStudentsData.map((s, idx) => {
       const studentId = `std_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`;
-      const customUsername = (s as any).username || s.customUsername;
-      const customPin = (s as any).pin || s.customPin || '123';
-      if (customPin) {
-        if (s.studentCode) permanentPins[s.studentCode.trim().toLowerCase()] = String(customPin).trim();
-        if (customUsername) permanentPins[String(customUsername).trim().toLowerCase()] = String(customPin).trim();
-        permanentPins[studentId] = String(customPin).trim();
-        pinsUpdated = true;
-      }
+      const cleanCode = (s.studentCode || `HS11${(idx + 1).toString().padStart(2, '0')}`).trim();
+      const autoUsername = (s as any).username || s.customUsername || generateStudentUsername(s.fullName, cleanCode);
+      const autoPin = (s as any).pin || s.customPin || DEFAULT_STUDENT_PIN || '123456';
+      
+      permanentPins[cleanCode.toLowerCase()] = String(autoPin).trim();
+      permanentPins[autoUsername.toLowerCase()] = String(autoPin).trim();
+      permanentPins[studentId] = String(autoPin).trim();
+      pinsUpdated = true;
+
+      const studentName = capitalizeVietnameseName(s.fullName || '');
+      const grp = Number(s.groupId) >= 1 && Number(s.groupId) <= 4 ? Number(s.groupId) : ((idx % 4) + 1);
+      const accInfo = mapRoleInClassToAccountInfo(s.roleInClass, grp);
+
+      const avatar = s.avatar || (s.gender === 'Nữ'
+        ? `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`
+        : `https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80`);
+
+      const studentAcc: AccountUser = {
+        id: `acc_${studentId}`,
+        username: autoUsername,
+        pin: autoPin,
+        fullName: studentName,
+        role: accInfo.role,
+        title: accInfo.title,
+        category: accInfo.category,
+        studentId: studentId,
+        studentCode: cleanCode,
+        groupId: grp,
+        phone: s.phone || '',
+        email: s.email || '',
+        avatar: avatar,
+        permissions: accInfo.permissions,
+        status: 'active',
+        isCustomPin: autoPin !== '123456' && autoPin !== '123',
+        authProvider: 'credentials',
+      };
+      newAccountsToCreate.push(studentAcc);
 
       return {
         ...s,
         id: studentId,
-        fullName: capitalizeVietnameseName(s.fullName || ''),
-        groupId: Number(s.groupId) >= 1 && Number(s.groupId) <= 4 ? Number(s.groupId) : ((idx % 4) + 1),
-        avatar: s.avatar || (s.gender === 'Nữ'
-          ? `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`
-          : `https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80`),
+        studentCode: cleanCode,
+        fullName: studentName,
+        groupId: grp,
+        avatar: avatar,
         teacherNotes: s.teacherNotes || '',
-        customUsername: customUsername ? String(customUsername).trim() : undefined,
-        customPin: customPin ? String(customPin).trim() : '123',
+        customUsername: autoUsername,
+        customPin: autoPin,
       };
     });
 
@@ -2189,7 +2205,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       studentsRef.current = formattedList;
       saveToStorage('students', formattedList);
       setClassInfo(prev => ({ ...prev, totalStudents: formattedList.length }));
-      logActivity('Nhập danh sách lớp', `Đã thay thế toàn bộ danh sách lớp bằng ${formattedList.length} học sinh mới`);
+      setAccounts(prev => {
+        const gvcnOnly = prev.filter(a => a.role === 'gvcn' || a.category === 'gvcn' || !a.studentId);
+        const combined = [...gvcnOnly, ...newAccountsToCreate];
+        accountsRef.current = combined;
+        saveToStorage('accounts', combined);
+        return combined;
+      });
+      logActivity('Nhập danh sách lớp', `Đã thay thế toàn bộ danh sách lớp bằng ${formattedList.length} học sinh mới và tự động tạo tài khoản đăng nhập`);
     } else {
       setStudents(prev => {
         const combined = [...prev, ...formattedList];
@@ -2198,17 +2221,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setClassInfo(ci => ({ ...ci, totalStudents: combined.length }));
         return combined;
       });
-      logActivity('Nhập danh sách lớp', `Đã thêm ${formattedList.length} học sinh mới vào danh sách lớp`);
+      setAccounts(prev => {
+        const combinedAccs = [...prev, ...newAccountsToCreate];
+        accountsRef.current = combinedAccs;
+        saveToStorage('accounts', combinedAccs);
+        return combinedAccs;
+      });
+      logActivity('Nhập danh sách lớp', `Đã thêm ${formattedList.length} học sinh mới vào danh sách lớp và tự động tạo tài khoản đăng nhập`);
     }
 
     // Đẩy ngay lập tức lên Google Sheets để lưu vĩnh viễn trên Cloud
     setTimeout(() => {
-      syncAllToGoogleSheets({ students: studentsRef.current });
+      syncAllToGoogleSheets({ students: studentsRef.current, accounts: accountsRef.current });
     }, 150);
 
     return {
       success: true,
-      message: `Đã nhập thành công ${formattedList.length} học sinh vào lớp ${classInfo.className}!`,
+      message: `Đã nhập thành công ${formattedList.length} học sinh vào lớp ${classInfo.className} và tự động cấp tài khoản đăng nhập cho toàn bộ học sinh!`,
       count: formattedList.length,
     };
   };
@@ -2265,8 +2294,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Merge & update existing student while preserving ID and core history links
           const indexInList = updatedList.findIndex(item => item.id === existing.id);
           if (indexInList !== -1) {
-            const finalUsername = customUsername ? String(customUsername).trim() : updatedList[indexInList].customUsername;
-            const finalPin = customPin ? String(customPin).trim() : (updatedList[indexInList].customPin || '123');
+            const finalUsername = customUsername ? String(customUsername).trim() : (updatedList[indexInList].customUsername || generateStudentUsername(newS.fullName || updatedList[indexInList].fullName, newS.studentCode || updatedList[indexInList].studentCode));
+            const finalPin = customPin ? String(customPin).trim() : (updatedList[indexInList].customPin || DEFAULT_STUDENT_PIN || '123456');
 
             if (customPin) {
               if (newS.studentCode || updatedList[indexInList].studentCode) {
@@ -2301,23 +2330,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (!existing) {
           // Insert new student
           const newStudentId = `std_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`;
-          const finalPin = customPin ? String(customPin).trim() : '123';
-          const finalUsername = customUsername ? String(customUsername).trim() : undefined;
+          const cleanCode = (newS.studentCode || `HS11${(updatedList.length + newlyAdded.length + 1).toString().padStart(2, '0')}`).trim();
+          const finalUsername = customUsername ? String(customUsername).trim() : generateStudentUsername(newS.fullName, cleanCode);
+          const finalPin = customPin ? String(customPin).trim() : (DEFAULT_STUDENT_PIN || '123456');
 
-          if (customPin) {
-            if (newS.studentCode) {
-              permanentPins[newS.studentCode.trim().toLowerCase()] = finalPin;
-            }
-            if (finalUsername) {
-              permanentPins[finalUsername.toLowerCase()] = finalPin;
-            }
-            permanentPins[newStudentId] = finalPin;
-            pinsUpdated = true;
-          }
+          permanentPins[cleanCode.toLowerCase()] = finalPin;
+          permanentPins[finalUsername.toLowerCase()] = finalPin;
+          permanentPins[newStudentId] = finalPin;
+          pinsUpdated = true;
 
           const newStudentObj: Student = {
             ...newS,
             id: newStudentId,
+            studentCode: cleanCode,
             fullName: capitalizeVietnameseName(newS.fullName || ''),
             groupId: Number(newS.groupId) >= 1 && Number(newS.groupId) <= 4 ? Number(newS.groupId) : ((idx % 4) + 1),
             avatar: newS.avatar || (newS.gender === 'Nữ'
@@ -2336,6 +2361,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       studentsRef.current = finalResult;
       saveToStorage('students', finalResult);
       setClassInfo(ci => ({ ...ci, totalStudents: finalResult.length }));
+
+      // Cập nhật và đồng bộ danh sách tài khoản tương ứng
+      setAccounts(prev => {
+        const gvcnAccounts = prev.filter(a => a.role === 'gvcn' || a.category === 'gvcn' || !a.studentId);
+        const existingStudentAccsMap = new Map<string, AccountUser>();
+        prev.filter(a => a.studentId).forEach(a => existingStudentAccsMap.set(a.studentId!, a));
+
+        const updatedStudentAccs: AccountUser[] = finalResult.map(s => {
+          const accInfo = mapRoleInClassToAccountInfo(s.roleInClass, s.groupId);
+          const old = existingStudentAccsMap.get(s.id);
+          const u = s.customUsername || (old ? old.username : generateStudentUsername(s.fullName, s.studentCode));
+          const p = s.customPin || (old ? old.pin : (DEFAULT_STUDENT_PIN || '123456'));
+
+          return {
+            id: old?.id || `acc_${s.id}`,
+            username: u,
+            pin: p,
+            fullName: s.fullName,
+            role: accInfo.role,
+            title: accInfo.title,
+            category: accInfo.category,
+            studentId: s.id,
+            studentCode: s.studentCode,
+            groupId: s.groupId,
+            phone: s.phone || '',
+            email: s.email || '',
+            avatar: s.avatar,
+            permissions: accInfo.permissions,
+            status: 'active',
+            isCustomPin: p !== '123456' && p !== '123',
+            authProvider: 'credentials',
+          };
+        });
+
+        const combinedAccs = [...gvcnAccounts, ...updatedStudentAccs];
+        accountsRef.current = combinedAccs;
+        saveToStorage('accounts', combinedAccs);
+        return combinedAccs;
+      });
+
       return finalResult;
     });
 
@@ -2950,13 +3015,173 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logActivity('Xuất 12 Sheet Excel', `Đã xuất toàn bộ 12 bảng dữ liệu lớp ${classInfo.className}`);
   };
 
+  // Lưu và nạp kho dữ liệu riêng biệt cho từng tài khoản GVCN (mỗi GVCN một link và danh sách học sinh riêng biệt)
+  const loadTeacherStore = (teacherUsername: string): boolean => {
+    try {
+      const cleanU = teacherUsername.trim().toLowerCase();
+      const storeKey = `gvcn_teacher_store_${cleanU}`;
+      const raw = localStorage.getItem(storeKey);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (data) {
+        if (data.classInfo) {
+          setClassInfo(data.classInfo);
+          classInfoRef.current = data.classInfo;
+          saveToStorage('classInfo', data.classInfo);
+        }
+        if (data.googleSheetsConfig) {
+          setGoogleSheetsConfig(data.googleSheetsConfig);
+          saveToStorage('googleSheetsConfig', data.googleSheetsConfig);
+        } else {
+          const cleanCfg: GoogleSheetsConfig = {
+            spreadsheetId: '',
+            spreadsheetUrl: '',
+            apiKey: '',
+            appScriptUrl: '',
+            autoSync: false,
+            lastSyncedAt: null,
+            syncStatus: 'idle',
+            syncError: null,
+            enabledSheets: {
+              taiKhoan: true,
+              thongTinLop: true,
+              danhSachLop: true,
+              diemDanh: true,
+              viPham: true,
+              khenThuong: true,
+              hocTap: true,
+              trucNhat: true,
+              laoDong: true,
+              ngoaiKhoa: true,
+              tuDanhGia: true,
+              tongHopThiDua: true,
+            }
+          };
+          setGoogleSheetsConfig(cleanCfg);
+          saveToStorage('googleSheetsConfig', cleanCfg);
+        }
+        if (Array.isArray(data.students)) {
+          setStudents(data.students);
+          studentsRef.current = data.students;
+          saveToStorage('students', data.students);
+        }
+        if (Array.isArray(data.accounts)) {
+          setAccounts(data.accounts);
+          accountsRef.current = data.accounts;
+          saveToStorage('accounts', data.accounts);
+        }
+        if (Array.isArray(data.attendance)) {
+          setAttendance(data.attendance);
+          saveToStorage('attendance', data.attendance);
+        }
+        if (Array.isArray(data.violations)) {
+          setViolations(data.violations);
+          saveToStorage('violations', data.violations);
+        }
+        if (Array.isArray(data.rewards)) {
+          setRewards(data.rewards);
+          saveToStorage('rewards', data.rewards);
+        }
+        if (Array.isArray(data.academicRecords)) {
+          setAcademicRecords(data.academicRecords);
+          saveToStorage('academicRecords', data.academicRecords);
+        }
+        if (Array.isArray(data.cleaningDuties)) {
+          setCleaningDuties(data.cleaningDuties);
+          saveToStorage('cleaningDuties', data.cleaningDuties);
+        }
+        if (Array.isArray(data.laborActivities)) {
+          setLaborActivities(data.laborActivities);
+          saveToStorage('laborActivities', data.laborActivities);
+        }
+        if (Array.isArray(data.extracurricularActivities)) {
+          setExtracurricularActivities(data.extracurricularActivities);
+          saveToStorage('extracurricularActivities', data.extracurricularActivities);
+        }
+        if (Array.isArray(data.evaluations)) {
+          setEvaluations(data.evaluations);
+          saveToStorage('evaluations', data.evaluations);
+        }
+        if (Array.isArray(data.groupSummaries)) {
+          setGroupSummaries(data.groupSummaries);
+          saveToStorage('groupSummaries', data.groupSummaries);
+        }
+        if (Array.isArray(data.seatingChart)) {
+          setSeatingChart(data.seatingChart);
+          saveToStorage('seatingChart', data.seatingChart);
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error('Error loading teacher store:', e);
+    }
+    return false;
+  };
+
+  const saveTeacherStore = (teacherUsername?: string) => {
+    try {
+      const activeTeacher = accounts.find(a => a.role === 'gvcn' || a.category === 'gvcn') ||
+        (currentUserRole.role === 'gvcn' ? accounts.find(a => a.id === currentUserRole.accountId) : undefined);
+      const u = (teacherUsername || activeTeacher?.username)?.trim().toLowerCase();
+      if (!u) return;
+      const storeKey = `gvcn_teacher_store_${u}`;
+      const payload = {
+        classInfo: classInfoRef.current,
+        googleSheetsConfig: googleSheetsConfig,
+        students: studentsRef.current,
+        accounts: accountsRef.current,
+        attendance: attendanceRef.current,
+        violations: violationsRef.current,
+        rewards: rewardsRef.current,
+        academicRecords: academicRecordsRef.current,
+        cleaningDuties: cleaningDutiesRef.current,
+        laborActivities: laborActivitiesRef.current,
+        extracurricularActivities: extracurricularActivitiesRef.current,
+        evaluations: evaluationsRef.current,
+        groupSummaries: groupSummariesRef.current,
+        seatingChart: seatingChartRef.current,
+      };
+      localStorage.setItem(storeKey, JSON.stringify(payload));
+    } catch (_) {}
+  };
+
   // Google Sheets Management
   const updateGoogleSheetsConfig = (newConfig: Partial<GoogleSheetsConfig>) => {
-    setGoogleSheetsConfig(prev => ({
-      ...prev,
-      ...newConfig,
-    }));
-    logActivity('Cập nhật Google Sheets', 'Thay đổi cấu hình kết nối Google Sheet / Apps Script');
+    setGoogleSheetsConfig(prev => {
+      const updated = {
+        ...prev,
+        ...newConfig,
+      };
+      saveToStorage('googleSheetsConfig', updated);
+
+      // Gắn link Google Sheet này trực tiếp vào tài khoản GVCN hiện tại
+      const currentGVCN = accounts.find(a => a.role === 'gvcn' || a.category === 'gvcn' || a.id === currentUserRole.accountId);
+      if (currentGVCN) {
+        setAccounts(accs => {
+          const updatedAccs = accs.map(a => a.id === currentGVCN.id ? { ...a, googleSheetsConfig: updated } : a);
+          accountsRef.current = updatedAccs;
+          saveToStorage('accounts', updatedAccs);
+          return updatedAccs;
+        });
+
+        try {
+          const storeKey = `gvcn_teacher_store_${currentGVCN.username.trim().toLowerCase()}`;
+          const existing = JSON.parse(localStorage.getItem(storeKey) || '{}');
+          existing.googleSheetsConfig = updated;
+          localStorage.setItem(storeKey, JSON.stringify(existing));
+
+          // Cập nhật cả trong danh sách GVCN đã đăng ký
+          const regList: AccountUser[] = JSON.parse(localStorage.getItem('gvcn_registered_teachers') || '[]');
+          const idx = regList.findIndex(t => t.username.toLowerCase() === currentGVCN.username.toLowerCase());
+          if (idx >= 0) {
+            regList[idx] = { ...regList[idx], googleSheetsConfig: updated };
+            localStorage.setItem('gvcn_registered_teachers', JSON.stringify(regList));
+          }
+        } catch (_) {}
+      }
+      return updated;
+    });
+    logActivity('Cập nhật Google Sheets', 'Thay đổi cấu hình kết nối Google Sheet / Apps Script cá nhân');
   };
 
   const getFullAppData = (customData?: Partial<FullAppDataPayload>): FullAppDataPayload => {
@@ -3011,19 +3236,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsSyncingData(true);
     setGoogleSheetsConfig(prev => ({ ...prev, syncStatus: 'syncing', syncError: null }));
 
+    // Bỏ thông báo đang lưu lên Google Sheets gây gián đoạn theo yêu cầu người dùng
     const isCadreOrTeacher = isHomeroomTeacher(currentUserRole.role) || isClassCadre(currentUserRole.role) || isClassAdmin(currentUserRole.role);
-    if (isCadreOrTeacher) {
-      setSyncNotification(prev => ({
-        visible: true,
-        status: 'saving',
-        title: 'Đang tự động lưu lên Google Sheets...',
-        message: prev?.message || `Đang cập nhật 13 trang tính ${classInfoRef.current.className ? `Lớp ${classInfoRef.current.className}` : 'Lớp học'}...`,
-        actor: prev?.actor || `${currentUserRole.title} (${currentUserRole.name})`,
-        timestamp: new Date().toLocaleTimeString('vi-VN'),
-        actionDetails: prev?.actionDetails || (lastActionRef.current ? lastActionRef.current.action : 'Đồng bộ dữ liệu lớp'),
-        spreadsheetUrl: googleSheetsConfig.spreadsheetUrl,
-      }));
-    }
 
     try {
       const result = await syncToGoogleSheets(googleSheetsConfig, data);
@@ -3644,8 +3858,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    // If the switched account is GVCN, immediately synchronize classInfo homeroomTeacher
+    // If the switched account is GVCN, immediately synchronize classInfo homeroomTeacher and load teacher store
     if (acc.role === 'gvcn' || acc.category === 'gvcn' || acc.id === 'acc_gvcn') {
+      loadTeacherStore(acc.username);
       setClassInfo(prev => ({
         ...prev,
         homeroomTeacher: acc.fullName,
@@ -3666,9 +3881,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loginWithCredentials = (username: string, pin: string): { success: boolean; message: string; user?: AccountUser } => {
-    const found = accounts.find(a => a.username.toLowerCase() === username.trim().toLowerCase());
+    const cleanU = username.trim().toLowerCase();
+
+    // 1. Tìm trong danh sách tài khoản hiện thời
+    let found = accounts.find(a => a.username.toLowerCase() === cleanU);
     if (!found) {
-      return { success: false, message: 'Tên đăng nhập không tồn tại trong hệ thống!' };
+      found = accounts.find(a => a.studentCode && a.studentCode.trim().toLowerCase() === cleanU);
+    }
+    if (!found) {
+      found = accounts.find(a => {
+        const u = generateStudentUsername(a.fullName, a.studentCode);
+        return u.toLowerCase() === cleanU;
+      });
+    }
+
+    // 2. Nếu chưa thấy, tìm trong các bucket GVCN khác đã đăng ký trên máy
+    if (!found) {
+      try {
+        const regList: AccountUser[] = JSON.parse(localStorage.getItem('gvcn_registered_teachers') || '[]');
+        for (const teacher of regList) {
+          if (teacher.username.toLowerCase() === cleanU) {
+            saveTeacherStore();
+            loadTeacherStore(teacher.username);
+            found = teacher;
+            break;
+          }
+          const storeKey = `gvcn_teacher_store_${teacher.username.toLowerCase()}`;
+          const raw = localStorage.getItem(storeKey);
+          if (raw) {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data.accounts)) {
+              const matchedStudent = data.accounts.find((a: AccountUser) =>
+                a.username.toLowerCase() === cleanU ||
+                (a.studentCode && a.studentCode.toLowerCase() === cleanU) ||
+                generateStudentUsername(a.fullName, a.studentCode).toLowerCase() === cleanU
+              );
+              if (matchedStudent) {
+                saveTeacherStore();
+                loadTeacherStore(teacher.username);
+                found = matchedStudent;
+                break;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!found) {
+      return { success: false, message: 'Tên đăng nhập hoặc Mã học sinh không tồn tại trong hệ thống!' };
+    }
+
+    // Nếu là GVCN thì nạp kho dữ liệu riêng của GVCN đó
+    if (found.role === 'gvcn' || found.category === 'gvcn') {
+      saveTeacherStore();
+      loadTeacherStore(found.username);
     }
 
     let effectivePin = found.pin;
@@ -3681,7 +3948,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (savedPin) effectivePin = savedPin;
     } catch (_) {}
 
-    if (effectivePin && effectivePin !== pin.trim()) {
+    const cleanInputPin = pin.trim();
+    // Chấp nhận cả 123456 và 123 cho mật khẩu ban đầu
+    const isPinMatch = effectivePin === cleanInputPin ||
+      ((cleanInputPin === '123456' || cleanInputPin === '123') && (!effectivePin || effectivePin === '123' || effectivePin === '123456'));
+
+    if (!isPinMatch) {
       return { success: false, message: 'Mật khẩu / Mã PIN bảo mật không chính xác!' };
     }
     switchAccount(found.id);
@@ -3696,12 +3968,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }): Promise<{ success: boolean; message: string; user?: AccountUser; needsRegistration?: boolean }> => {
     try {
       const cleanEmail = profile.email.trim().toLowerCase();
-      const matchedAccount = accounts.find(
+      let matchedAccount = accounts.find(
         a => (a.googleEmail && a.googleEmail.toLowerCase() === cleanEmail) ||
              (a.email && a.email.toLowerCase() === cleanEmail)
       );
 
+      // Nếu chưa tìm thấy trong active accounts, tìm trong danh sách GVCN đã đăng ký
+      if (!matchedAccount) {
+        try {
+          const regList: AccountUser[] = JSON.parse(localStorage.getItem('gvcn_registered_teachers') || '[]');
+          const fromReg = regList.find(
+            a => (a.googleEmail && a.googleEmail.toLowerCase() === cleanEmail) ||
+                 (a.email && a.email.toLowerCase() === cleanEmail)
+          );
+          if (fromReg) {
+            saveTeacherStore();
+            loadTeacherStore(fromReg.username);
+            matchedAccount = fromReg;
+          }
+        } catch (_) {}
+      }
+
       if (matchedAccount) {
+        if (matchedAccount.role === 'gvcn' || matchedAccount.category === 'gvcn') {
+          saveTeacherStore();
+          loadTeacherStore(matchedAccount.username);
+        }
         const resolvedRole: UserRole = {
           role: matchedAccount.role,
           title: matchedAccount.title,
@@ -3871,12 +4163,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notes: data.authProvider === 'google'
           ? 'Tài khoản GVCN đăng ký bằng tài khoản Google thực tế'
           : 'Tài khoản GVCN đăng ký tiêu chuẩn',
+        googleSheetsConfig: cleanSheetsConfig,
       };
+
+      // Lưu vào danh sách các GVCN đã đăng ký để hỗ trợ nhiều GVCN độc lập
+      try {
+        const regList: AccountUser[] = JSON.parse(localStorage.getItem('gvcn_registered_teachers') || '[]');
+        const idx = regList.findIndex(t => t.username.toLowerCase() === cleanUsername.toLowerCase());
+        if (idx >= 0) regList[idx] = newTeacherAccount;
+        else regList.push(newTeacherAccount);
+        localStorage.setItem('gvcn_registered_teachers', JSON.stringify(regList));
+      } catch (_) {}
 
       // Set accounts list: only the new teacher
       const newAccountsList = [newTeacherAccount];
       setAccounts(newAccountsList);
       saveToStorage('accounts', newAccountsList);
+
+      // Lưu kho dữ liệu của GVCN này
+      try {
+        const storeKey = `gvcn_teacher_store_${cleanUsername.toLowerCase()}`;
+        const payload = {
+          classInfo: newClassInfo,
+          googleSheetsConfig: cleanSheetsConfig,
+          students: [],
+          accounts: newAccountsList,
+          attendance: [],
+          violations: [],
+          rewards: [],
+          academicRecords: [],
+          cleaningDuties: [],
+          laborActivities: [],
+          extracurricularActivities: [],
+          evaluations: [],
+          groupSummaries: [],
+          seatingChart: [],
+        };
+        localStorage.setItem(storeKey, JSON.stringify(payload));
+      } catch (_) {}
 
       // Save custom permanent pin if any
       try {

@@ -1597,7 +1597,7 @@ export function parseAccountsFromTable(rows: any[][]): AccountUser[] {
         username.startsWith('phobithu_') ||
         username.startsWith('thuquy_');
       if (isLegacyUsername && fullName) {
-        username = generateStudentUsername(fullName, title, groupId);
+        username = generateStudentUsername(fullName, studentCode || title);
       }
     }
     if (!username) continue;

@@ -29,6 +29,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { AccountUser, TeacherRegistrationData } from '../types';
 import { GoogleAuthModal } from './GoogleAuthModal';
+import { UserGuideModal } from './UserGuideModal';
 import { isRealGoogleEmail } from '../utils/googleAuth';
 
 export const LoginPage: React.FC = () => {
@@ -94,6 +95,9 @@ export const LoginPage: React.FC = () => {
   // Google Auth Modal
   const [googleModalOpen, setGoogleModalOpen] = useState(false);
   const [googleModalMode, setGoogleModalMode] = useState<'login' | 'register'>('login');
+
+  // User Guide Modal
+  const [guideModalOpen, setGuideModalOpen] = useState(false);
 
   // Quick picker states for student/cadre
   const [showPicker, setShowPicker] = useState(false);
@@ -321,7 +325,29 @@ export const LoginPage: React.FC = () => {
       <div className="absolute bottom-0 -right-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main Form Center Box */}
-      <main className="max-w-5xl mx-auto w-full my-auto py-3 sm:py-5 relative z-10 flex flex-col items-center">
+      <main className="max-w-5xl mx-auto w-full my-auto py-2 sm:py-4 relative z-10 flex flex-col items-center">
+        {/* Top Navigation Menu Bar Outside Login Interface */}
+        <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-2 sm:mb-3 px-1 relative z-20">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-900/60 border border-blue-400/30 text-sky-200 text-[11px] sm:text-xs font-bold shadow-md backdrop-blur-md">
+              <School className="w-3.5 h-3.5 text-amber-300" />
+              <span>Hệ thống Quản lý Nề nếp & Thi đua Lớp học 4.0</span>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setGuideModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-1.5 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 text-blue-950 font-black text-xs sm:text-sm rounded-full shadow-lg shadow-amber-400/30 border border-yellow-200 transition-all active:scale-95 cursor-pointer animate-pulse hover:animate-none"
+          >
+            <BookOpen className="w-4 h-4 text-blue-950" />
+            <span>📖 HƯỚNG DẪN SỬ DỤNG</span>
+            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+              Chi tiết
+            </span>
+          </button>
+        </div>
+
         {/* 3D Joyful Title with Background Banner mimicking image.png */}
         <div className="w-full mb-4 sm:mb-6 relative z-10 select-none animate-in fade-in zoom-in-95 duration-500">
           <div className="relative overflow-hidden bg-gradient-to-b from-sky-400/35 via-blue-600/25 to-indigo-900/40 border-2 border-sky-400/45 rounded-3xl p-4 sm:p-7 backdrop-blur-md shadow-2xl text-center">
@@ -646,9 +672,11 @@ export const LoginPage: React.FC = () => {
                 {/* Username input */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                    <span>{loginMode === 'gvcn' ? 'Tên đăng nhập GVCN' : 'Tên đăng nhập / Mã HS'}</span>
-                    {loginMode === 'gvcn' && (
+                    <span>{loginMode === 'gvcn' ? 'Tên đăng nhập GVCN' : 'Tên tài khoản Học sinh / Cán sự'}</span>
+                    {loginMode === 'gvcn' ? (
                       <span className="text-[10px] font-normal text-slate-400 font-mono">Ví dụ: gvcn</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-indigo-600 font-mono">Tên không dấu + Mã HS</span>
                     )}
                   </label>
                   <div className="relative">
@@ -657,11 +685,16 @@ export const LoginPage: React.FC = () => {
                       type="text"
                       value={username}
                       onChange={e => setUsername(e.target.value)}
-                      placeholder={loginMode === 'gvcn' ? 'Tên đăng nhập GVCN' : 'Nhập mã HS hoặc tên tài khoản'}
+                      placeholder={loginMode === 'gvcn' ? 'Tên đăng nhập GVCN' : 'Ví dụ: anhs1001 (hoặc mã HS1001)'}
                       className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition-all"
                       required
                     />
                   </div>
+                  {loginMode === 'student_cadre' && (
+                    <p className="text-[10px] text-slate-500 italic mt-0.5 leading-tight">
+                      💡 Cú pháp: <strong>Tên HS không dấu + Mã HS</strong> (Ví dụ: An mã HS1001 ➔ <code className="text-blue-700 font-bold bg-blue-50 px-1 rounded">anhs1001</code>). Hoặc nhập trực tiếp Mã HS.
+                    </p>
+                  )}
                 </div>
 
                 {/* Password input */}
@@ -1247,6 +1280,16 @@ export const LoginPage: React.FC = () => {
                     </>
                   )}
                 </button>
+
+                {/* Nút mở cẩm nang hướng dẫn sử dụng trong thẻ */}
+                <button
+                  type="button"
+                  onClick={() => setGuideModalOpen(true)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all cursor-pointer mt-1"
+                >
+                  <BookOpen className="w-4 h-4 text-slate-950" />
+                  <span>Mở Sách Hướng Dẫn Sử Dụng</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1274,6 +1317,12 @@ export const LoginPage: React.FC = () => {
         onClose={() => setGoogleModalOpen(false)}
         onSuccess={handleGoogleAuthSuccess}
         mode={googleModalMode}
+      />
+
+      {/* User Guide Modal */}
+      <UserGuideModal
+        isOpen={guideModalOpen}
+        onClose={() => setGuideModalOpen(false)}
       />
     </div>
   );

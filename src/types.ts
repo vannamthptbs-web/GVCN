@@ -45,6 +45,7 @@ export interface AccountUser {
   authProvider?: 'credentials' | 'google'; // Phương thức đăng nhập
   googleId?: string; // Google User ID / sub
   googleEmail?: string; // Email Google thực tế
+  googleSheetsConfig?: GoogleSheetsConfig; // Cấu hình Google Sheet riêng gắn với tài khoản GVCN
 }
 
 export interface TeacherRegistrationData {

@@ -430,9 +430,9 @@ export function sortAccountsByHierarchy(accounts: AccountUser[]): AccountUser[] 
 }
 
 /**
- * Mật khẩu / Mã PIN mặc định theo quy chế hệ thống: 123
+ * Mật khẩu / Mã PIN mặc định theo quy chế hệ thống: 123456
  */
-export const DEFAULT_STUDENT_PIN = '123';
+export const DEFAULT_STUDENT_PIN = '123456';
 
 /**
  * Hàm bỏ dấu tiếng Việt chuyển thành chữ không dấu viết thường, an toàn cho tài khoản
@@ -449,87 +449,56 @@ export function removeTonesForAccount(str: string): string {
 }
 
 /**
- * Tạo Tên đăng nhập cho học sinh theo cấu trúc quy định:
- * - Cán sự / Chức vụ: chức vụ + tên (VD: Lớp trưởng tên Khang -> ltkhang, Lớp phó Học tập tên Vinh -> lphtvinh,
- *   Tổ trưởng Tổ 1 tên Thông -> tt1thong, Bí thư tên Anh -> btanh, Thủ quỹ tên Linh -> tqlinh)
- * - Thành viên: họ và chữ lót viết tắt + tên đầy đủ (VD: Nguyễn Bảo Hân -> nbhan, Đinh Thị Bích Diệp -> dtbdiep)
+ * NGUYÊN TẮC TẠO TÊN TÀI KHOẢN HỌC SINH (YÊU CẦU CHUẨN):
+ * TÊN HỌC SINH KHÔNG DẤU + MÃ HỌC SINH
+ * (Đảm bảo khi nhiều GVCN cùng dùng app thì tài khoản học sinh không bao giờ bị trùng lặp)
+ * Ví dụ: 
+ *   - "Nguyễn Vĩnh An" + "HS1101" -> "anhs1101"
+ *   - "Lê Tấn Bình" + "HS1102" -> "binhhs1102"
+ *   - "Lý Hồ Quốc Đạt" + "HS1103" -> "daths1103"
+ *   - "Phạm Tấn Đồng" + "HS1104" -> "donghs1104"
  */
-export function generateStudentUsername(fullName: string, roleInClass?: string, groupId?: number): string {
-  if (!fullName || !fullName.trim()) return 'hs';
-
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'hs';
-
-  // Tên chính (từ cuối cùng)
-  const rawTen = parts[parts.length - 1];
-  const tenClean = removeTonesForAccount(rawTen).replace(/[^a-z0-9]/g, '');
-
-  // Xác định vai trò
-  const r = (roleInClass || '').toLowerCase().trim();
-  const isMember = !r || r === 'thành viên' || r === 'thanh vien' || r === 'học sinh' || r === 'hoc sinh';
-
-  if (!isMember) {
-    // 1. Lớp trưởng: lt + tên (vd: ltkhang)
-    if (r.includes('lớp trưởng') || r.includes('lop truong') || r === 'lt') {
-      return `lt${tenClean}`;
-    }
-    // 2. Lớp phó học tập: lpht + tên (vd: lphtvinh, lphtchi)
-    if (r.includes('học tập') || r.includes('hoc tap')) {
-      return `lpht${tenClean}`;
-    }
-    // 3. Lớp phó kỷ luật: lpkl + tên
-    if (r.includes('kỷ luật') || r.includes('ky luat') || r.includes('nề nếp') || r.includes('ne nep')) {
-      return `lpkl${tenClean}`;
-    }
-    // 4. Lớp phó lao động / vệ sinh: lpld + tên (vd: lpldthu, lpldthang)
-    if (r.includes('lao động') || r.includes('lao dong') || r.includes('vệ sinh') || r.includes('ve sinh')) {
-      return `lpld${tenClean}`;
-    }
-    // 5. Lớp phó văn thể mỹ / phong trào: lpvtm + tên (vd: lpvtmngoc)
-    if (r.includes('văn thể') || r.includes('van the') || r.includes('phong trào') || r.includes('phong trao')) {
-      return `lpvtm${tenClean}`;
-    }
-    // 6. Lớp phó (chung): lp + tên
-    if (r.includes('lớp phó') || r.includes('lop pho') || r === 'lp') {
-      return `lp${tenClean}`;
-    }
-    // 7. Phó Bí thư (kiểm tra trước Bí thư): pbt + tên (vd: pbtkiet)
-    if (r.includes('phó bí thư') || r.includes('pho bi thu') || r === 'pbt') {
-      return `pbt${tenClean}`;
-    }
-    // 8. Bí thư Chi đoàn: bt + tên (vd: btanh, bttran)
-    if (r.includes('bí thư') || r.includes('bi thu') || r === 'bt') {
-      return `bt${tenClean}`;
-    }
-    // 9. Thủ quỹ: tq + tên (vd: tqlinh, tqthao)
-    if (r.includes('thủ quỹ') || r.includes('thu quy') || r === 'tq') {
-      return `tq${tenClean}`;
-    }
-    // 10. Tổ trưởng: tt + (tổ 1..4) + tên (vd: tt1thong, tt2nhi, tt3ni, tt4hang)
-    if (r.includes('tổ trưởng') || r.includes('to truong') || r === 'tt') {
-      const gMatch = r.match(/tổ\s*(\d+)/i) || r.match(/to\s*(\d+)/i);
-      const g = gMatch ? gMatch[1] : (groupId ? String(groupId) : '');
-      return `tt${g}${tenClean}`;
-    }
-    // 11. Tổ phó: tp + (tổ 1..4) + tên (vd: tp1dat, tp2trong, tp3dang, tp4anh)
-    if (r.includes('tổ phó') || r.includes('to pho') || r === 'tp') {
-      const gMatch = r.match(/tổ\s*(\d+)/i) || r.match(/to\s*(\d+)/i);
-      const g = gMatch ? gMatch[1] : (groupId ? String(groupId) : '');
-      return `tp${g}${tenClean}`;
-    }
-    // 12. Cán sự môn: cs + tên
-    if (r.includes('cán sự') || r.includes('can su')) {
-      return `cs${tenClean}`;
-    }
-    // 13. Ủy viên BCH: uv + tên
-    if (r.includes('ủy viên') || r.includes('uy vien')) {
-      return `uv${tenClean}`;
-    }
+export function generateStudentUsername(
+  fullName: string,
+  studentCode?: string,
+  roleInClass?: string | number,
+  _groupId?: number
+): string {
+  if (!fullName || !fullName.trim()) {
+    const codeClean = studentCode ? removeTonesForAccount(studentCode).toLowerCase().replace(/[^a-z0-9]/g, '') : 'hs';
+    return codeClean || 'hs';
   }
 
-  // THÀNH VIÊN: họ và chữ lót viết tắt + tên đầy đủ (vd: Nguyễn Bảo Hân -> nbhan)
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const rawTen = parts[parts.length - 1]; // Tên chính của học sinh (An, Bình, Đạt, Đồng, Hợp...)
+  const tenClean = removeTonesForAccount(rawTen).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Kiểm tra nếu studentCode bị truyền nhầm là roleInClass thì cố gắng tìm code
+  const isLikelyRole = (val?: string | number) => {
+    if (val === undefined || val === null) return false;
+    const v = removeTonesForAccount(String(val)).toLowerCase();
+    return v.includes('lop') || v.includes('to') || v.includes('can su') || v.includes('bi thu') || v.includes('thanh vien') || v.includes('hoc sinh');
+  };
+
+  let realCode = studentCode;
+  if (realCode && isLikelyRole(realCode) && roleInClass !== undefined && !isLikelyRole(roleInClass)) {
+    realCode = String(roleInClass);
+  } else if (realCode && isLikelyRole(realCode)) {
+    realCode = '';
+  }
+
+  const codeClean = realCode
+    ? removeTonesForAccount(realCode).toLowerCase().replace(/[^a-z0-9]/g, '')
+    : '';
+
+  // Quy tắc chuẩn: Tên HS không dấu + Mã HS
+  if (codeClean) {
+    return `${tenClean}${codeClean}`;
+  }
+
+  // Fallback nếu chưa có mã học sinh: tên + họ đệm viết tắt
   if (parts.length === 1) {
-    return tenClean;
+    return `${tenClean}hs01`;
   }
   const hoDemParts = parts.slice(0, -1);
   const initials = hoDemParts.map(p => {
@@ -537,7 +506,7 @@ export function generateStudentUsername(fullName: string, roleInClass?: string, 
     return clean.charAt(0);
   }).join('');
 
-  return `${initials}${tenClean}`;
+  return `${tenClean}${initials}`;
 }
 
 /**
@@ -546,7 +515,7 @@ export function generateStudentUsername(fullName: string, roleInClass?: string, 
 export function isDefaultStudentPin(pin?: string, _studentCode?: string): boolean {
   if (!pin) return true;
   const p = pin.trim();
-  // Chỉ coi là mặc định nếu đúng là rỗng hoặc '123'
-  return p === '' || p === '123';
+  // Chấp nhận cả '123' và '123456'
+  return p === '' || p === '123' || p === '123456';
 }
 
