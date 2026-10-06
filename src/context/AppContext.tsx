@@ -27,7 +27,11 @@ import {
   SeatAssignment,
   SeatingChartConfig,
   TeacherRegistrationData,
+  DailyMissionRecord,
+  GameQuestionSet,
+  GameType,
 } from '../types';
+import { getCurrentSchoolWeek } from '../utils/emulationHistory';
 import { getGoogleInitialAvatar } from '../utils/googleAuth';
 import {
   savePermanentAvatar,
@@ -340,6 +344,21 @@ interface AppContextType {
   syncNotification: SyncNotificationState | null;
   dismissSyncNotification: () => void;
   triggerManualSyncWithConfirmation: (reason?: string) => Promise<{ success: boolean; message: string }>;
+
+  // Giải trí & Trò chơi tích điểm
+  dailyMissions: DailyMissionRecord[];
+  savedQuestionSets: GameQuestionSet[];
+  saveQuestionSet: (set: GameQuestionSet) => void;
+  deleteQuestionSet: (id: string) => void;
+  recordGamePoints: (params: {
+    studentId: string;
+    gameType: GameType;
+    gameName: string;
+    missionTitle: string;
+    points: number;
+    isDailyMission?: boolean;
+    customRewardItem?: string;
+  }) => { success: boolean; message: string; points: number; streak: number; rewardItem?: string };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -550,7 +569,109 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     seatingChartRef.current = seatingChart;
   }, [seatingChart]);
 
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(() => getCurrentSchoolWeek() || 5);
+
+  // 12. Giải trí & Trò chơi tích điểm
+  const [dailyMissions, setDailyMissions] = useState<DailyMissionRecord[]>(() => {
+    const loaded = loadFromStorage<DailyMissionRecord[]>('dailyMissions', []);
+    return Array.isArray(loaded) ? loaded : [];
+  });
+  const dailyMissionsRef = useRef<DailyMissionRecord[]>(dailyMissions);
+  useEffect(() => {
+    dailyMissionsRef.current = dailyMissions;
+  }, [dailyMissions]);
+
+  const [savedQuestionSets, setSavedQuestionSets] = useState<GameQuestionSet[]>(() => {
+    const loaded = loadFromStorage<GameQuestionSet[]>('questionSets', []);
+    if (Array.isArray(loaded) && loaded.length > 0) {
+      return loaded.map(s => {
+        if (s.id === 'set_default_1' && s.isReviewedByTeacher === undefined) {
+          return {
+            ...s,
+            isReviewedByTeacher: true,
+            reviewedAt: s.reviewedAt || new Date().toISOString(),
+            questions: s.questions.map(q => ({ ...q, isApproved: q.isApproved ?? true })),
+          };
+        }
+        return s;
+      });
+    }
+    return [
+      {
+        id: 'set_default_1',
+        title: 'Bộ Đố Vui Nề Nếp & Thi Đua 4.0',
+        topic: 'Nề nếp học đường, quy tắc ứng xử và tinh thần đoàn kết',
+        createdAt: new Date().toISOString(),
+        isReviewedByTeacher: true,
+        reviewedAt: new Date().toISOString(),
+        questions: [
+          {
+            id: 'q1',
+            question: 'Học sinh cần có mặt tại lớp trước giờ truy bài bao nhiêu phút để đảm bảo nề nếp chuyên cần?',
+            options: ['Trước 15 phút', 'Đúng giờ trống điểm', 'Trước 5 phút', 'Muộn 5 phút vẫn được'],
+            correctIndex: 0,
+            level: 'Dễ',
+            explanation: 'Đến trước 15 phút giúp học sinh ổn định chỗ ngồi, chuẩn bị sách vở và tham gia truy bài nghiêm túc.',
+            isApproved: true
+          },
+          {
+            id: 'q2',
+            question: 'Khi phát hiện rác trong khuôn viên lớp học hoặc sân trường, hành động nào đúng đắn nhất?',
+            options: ['Lờ đi vì không phải rác của mình', 'Chờ ban lao động dọn', 'Tự giác nhặt bỏ vào thùng rác', 'Đùn đẩy cho tổ trực nhật'],
+            correctIndex: 2,
+            level: 'Dễ',
+            explanation: 'Ý thức giữ gìn vệ sinh chung là tiêu chuẩn nếp sống văn minh học đường.',
+            isApproved: true
+          },
+          {
+            id: 'q3',
+            question: 'Ý nghĩa quan trọng nhất của phong trào "Xây dựng Lớp học Hạnh phúc" là gì?',
+            options: ['Chỉ để thi đua lấy giải thưởng', 'Mỗi ngày đến trường là một ngày vui, cùng tiến bộ và sẻ chia', 'Miễn tất cả các bài kiểm tra', 'Không cần kỷ luật nề nếp'],
+            correctIndex: 1,
+            level: 'Trung bình',
+            explanation: 'Lớp học hạnh phúc là môi trường nơi học sinh được yêu thương, tôn trọng, an toàn và phát triển toàn diện.',
+            isApproved: true
+          },
+          {
+            id: 'q4',
+            question: 'Để tổ của mình đạt vị trí dẫn đầu trong tuần thi đua, chiến lược nào bền vững nhất?',
+            options: ['Bao che lỗi cho các thành viên trong tổ', 'Tương trợ học tập, nhắc nhở nhau kỷ luật và tích cực phát biểu xây dựng bài', 'Chỉ tập trung vào một vài bạn giỏi', 'Chờ đợi tổ khác mắc lỗi'],
+            correctIndex: 1,
+            level: 'Trung bình',
+            explanation: 'Đoàn kết nội bộ và tinh thần giúp đỡ nhau cùng tiến bộ là chìa khóa duy trì thành tích thi đua lâu dài.',
+            isApproved: true
+          },
+          {
+            id: 'q5',
+            question: 'Nếu trong giờ kiểm tra, một người bạn thân tha thiết xin bạn cho chép bài, bạn nên xử lý ra sao?',
+            options: ['Đưa bài cho bạn chép ngay để giữ tình bạn', 'Từ chối dứt khoát trong giờ thi, sau giờ thi giải thích và chủ động hướng dẫn bạn học lại phần đó', 'Báo cáo ngay to tiếng giữa lớp', 'Cho bạn xem một nửa bài'],
+            correctIndex: 1,
+            level: 'Khó',
+            explanation: 'Giúp bạn chân chính là không tiếp tay cho sự gian lận mà đồng hành cùng bạn học tập tiến bộ thật sự.',
+            isApproved: true
+          },
+          {
+            id: 'q6',
+            question: 'Đâu là giải pháp tối ưu giúp cân bằng giữa hoạt động phong trào sôi nổi và kết quả học tập xuất sắc?',
+            options: ['Bỏ bớt phong trào chỉ học sách vở', 'Lập thời gian biểu khoa học, học tập trung và phân bổ năng lượng hợp lý', 'Thức khuya học bù sau khi chơi phong trào', 'Nhờ bạn làm bài tập hộ'],
+            correctIndex: 1,
+            level: 'Khó',
+            explanation: 'Kỹ năng quản lý thời gian và học tập có phương pháp giúp học sinh phát triển toàn diện cả đức, trí, thể, mỹ.',
+            isApproved: true
+          },
+          {
+            id: 'q7',
+            question: 'Câu tục ngữ nào thể hiện rõ nét nhất tinh thần vượt khó vươn lên trong học tập và rèn luyện?',
+            options: ['Nước chảy đá mòn', 'Há miệng chờ sung', 'Trăm nghe không bằng một thấy', 'Đục nước béo cò'],
+            correctIndex: 0,
+            level: 'Cực khó',
+            explanation: '"Nước chảy đá mòn" ca ngợi đức tính kiên trì, bền bỉ mỗi ngày, tương ứng với khẩu hiệu "Mỗi ngày cố gắng một chút, thành công sẽ ngày càng gần hơn".',
+            isApproved: true
+          }
+        ]
+      }
+    ];
+  });
   const [selectedStudentIdForDetail, setSelectedStudentIdForDetail] = useState<string | null>(null);
   const [quickActionModalOpen, setQuickActionModalOpen] = useState<boolean>(false);
   const [googleSheetsModalOpen, setGoogleSheetsModalOpen] = useState<boolean>(false);
@@ -3203,6 +3324,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       groupScores: rankedGroups,
       selectedWeek,
       seatingChart: customData?.seatingChart || seatingChartRef.current || seatingChart,
+      dailyMissions: customData?.dailyMissions || dailyMissionsRef.current,
       ...(customData || {}),
     };
   };
@@ -4847,6 +4969,131 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logActivity('Hoàn tác', `Đã hoàn tác thao tác gần nhất: "${latest.action}"`, false);
   };
 
+  const saveQuestionSet = (set: GameQuestionSet) => {
+    setSavedQuestionSets(prev => {
+      const idx = prev.findIndex(s => s.id === set.id);
+      const updated = idx >= 0 ? prev.map(s => (s.id === set.id ? set : s)) : [set, ...prev];
+      saveToStorage('questionSets', updated);
+      return updated;
+    });
+    logActivity('Bộ câu hỏi trò chơi', `Đã lưu bộ câu hỏi: "${set.title}" (${set.questions.length} câu)`);
+  };
+
+  const deleteQuestionSet = (id: string) => {
+    setSavedQuestionSets(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      saveToStorage('questionSets', updated);
+      return updated;
+    });
+    logActivity('Xóa bộ câu hỏi', `Đã xóa bộ câu hỏi mã ${id}`);
+  };
+
+  const recordGamePoints = (params: {
+    studentId: string;
+    gameType: GameType;
+    gameName: string;
+    missionTitle: string;
+    points: number;
+    isDailyMission?: boolean;
+    customRewardItem?: string;
+  }): { success: boolean; message: string; points: number; streak: number; rewardItem?: string } => {
+    const student = students.find(s => s.id === params.studentId);
+    if (!student) {
+      return { success: false, message: 'Không tìm thấy học sinh trong danh sách lớp!', points: 0, streak: 0 };
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const currWeek = getCurrentSchoolWeek() || 5;
+
+    // Tính toán streak cho học sinh này
+    const studentMissions = dailyMissions.filter(m => m.studentId === params.studentId);
+    const datesCompleted = Array.from(new Set(studentMissions.map(m => m.date))).sort();
+
+    let currentStreak = 1;
+    if (datesCompleted.length > 0) {
+      const lastDate = datesCompleted[datesCompleted.length - 1];
+      if (lastDate === todayStr) {
+        currentStreak = studentMissions[studentMissions.length - 1]?.streakDays || 1;
+      } else {
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        if (lastDate === yesterday) {
+          currentStreak = (studentMissions[studentMissions.length - 1]?.streakDays || 1) + 1;
+        } else {
+          currentStreak = 1;
+        }
+      }
+    }
+
+    let tier = 'Đồng';
+    if (currentStreak >= 15) tier = 'Kim Cương';
+    else if (currentStreak >= 7) tier = 'Vàng';
+    else if (currentStreak >= 3) tier = 'Bạc';
+
+    let rewardItem = params.customRewardItem || '';
+    if (!rewardItem) {
+      if (params.points >= 50) rewardItem = 'Huy hiệu Chiến binh Tri thức + Điểm 10 miệng';
+      else if (params.points >= 30) rewardItem = 'Cộng 30 điểm thi đua cá nhân';
+      else if (params.points >= 20) rewardItem = 'Phiếu miễn 1 lần trực nhật';
+      else rewardItem = 'Sticker Ngôi sao Chăm chỉ + Cộng điểm thi đua';
+    }
+
+    const newRecord: DailyMissionRecord = {
+      id: `gm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      date: todayStr,
+      week: currWeek,
+      studentId: student.id,
+      studentCode: student.studentCode,
+      studentName: student.fullName,
+      groupId: student.groupId,
+      gameType: params.gameType,
+      gameName: params.gameName,
+      missionTitle: params.missionTitle,
+      pointsEarned: params.points,
+      streakDays: currentStreak,
+      rewardTier: tier,
+      rewardItem: rewardItem,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedMissions = [...dailyMissions, newRecord];
+    setDailyMissions(updatedMissions);
+    dailyMissionsRef.current = updatedMissions;
+    saveToStorage('dailyMissions', updatedMissions);
+
+    // Tự động tạo bản ghi khen thưởng để cộng điểm ngay vào thi đua cá nhân & tổ tuần 5!
+    if (params.points > 0) {
+      const rewardRecord: RewardRecord = {
+        id: `rew_game_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        studentId: student.id,
+        date: todayStr,
+        category: 'Phong trào',
+        title: `[${params.gameName}] ${params.missionTitle}`,
+        bonusPoints: params.points,
+        recordedBy: currentUserRole.title || 'GVCN',
+        evidence: `Trò chơi tương tác: ${params.gameName} (Chuỗi rèn luyện ${currentStreak} ngày)`,
+        createdAt: new Date().toISOString(),
+      };
+      setRewards(prev => {
+        const nextRewards = [...prev, rewardRecord];
+        rewardsRef.current = nextRewards;
+        saveToStorage('rewards', nextRewards);
+        return nextRewards;
+      });
+    }
+
+    scheduleAutoSync(300);
+
+    logActivity('Trò chơi học tập', `Học sinh ${student.fullName} đạt ${params.points} điểm trong ${params.gameName} (Chuỗi ${currentStreak} ngày, cấp bậc ${tier})`);
+
+    return {
+      success: true,
+      message: `Chúc mừng ${student.fullName} đã đạt +${params.points} điểm và duy trì chuỗi ${currentStreak} ngày!`,
+      points: params.points,
+      streak: currentStreak,
+      rewardItem: rewardItem,
+    };
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -4979,6 +5226,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncNotification,
         dismissSyncNotification,
         triggerManualSyncWithConfirmation,
+        dailyMissions,
+        savedQuestionSets,
+        saveQuestionSet,
+        deleteQuestionSet,
+        recordGamePoints,
       }}
     >
       {children}

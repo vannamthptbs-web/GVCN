@@ -14,9 +14,10 @@ import {
 import { FullAppDataPayload } from './googleSheetsSync';
 
 /**
- * Standard baseline start of the school year (Monday of Week 1)
+ * Standard baseline start of the school year (Monday of Week 1 - Sep 7th, 2026)
+ * Đảm bảo tuần hiện tại (5/10 - 11/10/2026) chính xác là Tuần 5 theo phân phối chương trình
  */
-export const SCHOOL_YEAR_START = '2026-08-24';
+export const SCHOOL_YEAR_START = '2026-09-07';
 
 export interface DateTimelineInfo {
   date: string; // YYYY-MM-DD

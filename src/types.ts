@@ -88,6 +88,7 @@ export interface GoogleSheetsConfig {
     ngoaiKhoa: boolean;
     tuDanhGia: boolean;
     tongHopThiDua: boolean;
+    giaiTriTichDiem?: boolean;
   };
 }
 
@@ -194,7 +195,9 @@ export type RewardCategory =
   | 'Thành tích học tập' 
   | 'Văn nghệ - Thể thao' 
   | 'Việc tốt' 
-  | 'Tiến bộ vượt bậc';
+  | 'Tiến bộ vượt bậc'
+  | 'Phong trào'
+  | 'Trò chơi học tập';
 
 export interface RewardRecord {
   id: string;
@@ -419,4 +422,62 @@ export interface SeatingChartConfig {
   updatedAt?: string;
   updatedBy?: string;
 }
+
+// ==========================================
+// 12. GIẢI TRÍ & TRÒ CHƠI HỌC TẬP TÍCH ĐIỂM
+// ==========================================
+
+export type GameType = 'lucky_wheel' | 'golden_bell' | 'millionaire' | 'daily_streak' | 'team_relay';
+
+export interface GameQuestion {
+  id: string;
+  question: string;
+  options: string[]; // 4 phương án lựa chọn [A, B, C, D]
+  correctIndex: number; // 0, 1, 2, 3
+  level: 'Dễ' | 'Trung bình' | 'Khó' | 'Cực khó';
+  explanation: string;
+  isApproved?: boolean; // Giáo viên đã duyệt câu này
+  notes?: string; // Ghi chú sư phạm của giáo viên
+}
+
+export interface GameQuestionSet {
+  id: string;
+  title: string;
+  topic: string;
+  sourceContent?: string;
+  createdAt: string;
+  updatedAt?: string;
+  isReviewedByTeacher?: boolean; // Giáo viên đã thẩm định và phê duyệt toàn bộ bộ đề
+  reviewedAt?: string;
+  questions: GameQuestion[];
+}
+
+export interface DailyMissionRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  week: number;
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  groupId: number;
+  gameType: GameType;
+  gameName: string;
+  missionTitle: string;
+  pointsEarned: number;
+  streakDays: number;
+  rewardTier: string; // 'Đồng' | 'Bạc' | 'Vàng' | 'Bạch Kim' | 'Kim Cương'
+  rewardItem: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface StudentGameReward {
+  id: string;
+  name: string;
+  cost: number;
+  icon: string;
+  desc: string;
+  category: 'hoc_tap' | 'ne_nep' | 'qua_tang';
+}
+
 

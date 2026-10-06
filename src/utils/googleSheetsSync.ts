@@ -21,6 +21,7 @@ import {
   ViolationProcessStatus,
   RewardCategory,
   SeatAssignment,
+  DailyMissionRecord,
 } from '../types';
 import {
   removeVietnameseTones,
@@ -58,6 +59,7 @@ export interface FullAppDataPayload {
   parentMeetingLogs?: any[];
   riskFactors?: any[];
   studyGroups?: any[];
+  dailyMissions?: DailyMissionRecord[];
 }
 
 /**
@@ -499,6 +501,41 @@ export function buildMultiSheetTables(data: FullAppDataPayload) {
     ])
   ];
 
+  // 15. GiaiTri_TichDiem (Lưu điểm rèn luyện hàng ngày, streak, trò chơi giải trí có quy trình)
+  const dailyMissionsList = Array.isArray(data.dailyMissions) ? data.dailyMissions : [];
+  const giaiTriTichDiemSheet = [
+    [
+      'STT',
+      'NGÀY',
+      'TUẦN',
+      'MÃ HỌC SINH',
+      'HỌ VÀ TÊN',
+      'TỔ',
+      'TÊN TRÒ CHƠI',
+      'NHIỆM VỤ / CÂU ĐỐ',
+      'ĐIỂM TÍCH LŨY (+)',
+      'CHUỖI NGÀY (STREAK)',
+      'CẤP BẬC DANH HIỆU',
+      'PHẦN THƯỞNG ĐẠT ĐƯỢC',
+      'THỜI GIAN GHI NHẬN'
+    ],
+    ...dailyMissionsList.map((dm, idx) => [
+      idx + 1,
+      dm.date || '',
+      `Tuần ${dm.week || 5}`,
+      dm.studentCode || '',
+      dm.studentName || '',
+      `Tổ ${dm.groupId || 1}`,
+      dm.gameName || '',
+      dm.missionTitle || '',
+      dm.pointsEarned || 0,
+      `${dm.streakDays || 1} ngày liên tiếp`,
+      dm.rewardTier || 'Đồng',
+      dm.rewardItem || '',
+      dm.createdAt || new Date().toISOString()
+    ])
+  ];
+
   return {
     'ThongTinLop_GVCN': thongTinLopGvcnSheet,
     'TaiKhoan': taiKhoanSheet,
@@ -520,6 +557,7 @@ export function buildMultiSheetTables(data: FullAppDataPayload) {
     'NgoaiKhoa': ngoaiKhoaSheet,
     'TuDanhGia': tuDanhGiaSheet,
     'BaoCaoTo': baoCaoToSheet,
+    'GiaiTri_TichDiem': giaiTriTichDiemSheet,
   };
 }
 
@@ -1992,7 +2030,7 @@ export function parseAllTablesFromGoogleSheets(
     parentMeetingLogs: fallbackData?.parentMeetingLogs || [],
     studentScores: fallbackData?.studentScores || [],
     groupScores: fallbackData?.groupScores || [],
-    selectedWeek: fallbackData?.selectedWeek || 1,
+    selectedWeek: fallbackData?.selectedWeek || 5,
   };
 }
 

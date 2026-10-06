@@ -28,6 +28,7 @@ import { AcademicView } from './components/views/AcademicView';
 import { DutyView } from './components/views/DutyView';
 import { LaborView } from './components/views/LaborView';
 import { ExtracurricularView } from './components/views/ExtracurricularView';
+import { EntertainmentView } from './components/views/EntertainmentView';
 import { GroupCompetitionView } from './components/views/GroupCompetitionView';
 import { IndividualCompetitionView } from './components/views/IndividualCompetitionView';
 import { WeeklyReportView } from './components/views/WeeklyReportView';
@@ -71,6 +72,8 @@ const MainLayout: React.FC = () => {
         return <LaborView />;
       case 'extracurricular':
         return <ExtracurricularView />;
+      case 'entertainment':
+        return <EntertainmentView />;
       case 'group_competition':
         return <GroupCompetitionView />;
       case 'individual_competition':

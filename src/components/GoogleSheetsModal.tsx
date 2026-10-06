@@ -178,6 +178,13 @@ export const GoogleSheetsModal: React.FC = () => {
     { key: 'ngoaiKhoa', name: '10. NgoaiKhoa', desc: 'Phong trào văn nghệ, thể thao, báo tường, CLB' },
     { key: 'tuDanhGia', name: '11. TuDanhGia', desc: 'Bản tự chấm điểm rèn luyện & nhận xét hàng tuần' },
     { key: 'tongHopThiDua', name: '12. TongHopThiDua', desc: 'Bảng xếp hạng tổng hợp cá nhân & 4 tổ tuần' },
+    { 
+      key: 'giaiTriTichDiem', 
+      name: '13. GiaiTri_TichDiem (Mới)', 
+      desc: 'Lưu điểm thử thách hàng ngày, streak chuỗi ngày, phần thưởng tích lũy & lịch sử chơi trò chơi',
+      isNew: true,
+      color: 'border-emerald-300 bg-emerald-50/70 text-emerald-900'
+    },
   ];
 
   return (
@@ -193,7 +200,7 @@ export const GoogleSheetsModal: React.FC = () => {
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 Liên kết & Đồng bộ Google Sheets
                 <span className="text-xs bg-emerald-500/40 text-emerald-100 px-2 py-0.5 rounded-full font-medium">
-                  12 Sheet đa nhiệm
+                  13 Sheet đa nhiệm
                 </span>
               </h2>
               <p className="text-xs text-emerald-100">

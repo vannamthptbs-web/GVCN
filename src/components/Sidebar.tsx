@@ -20,7 +20,8 @@ import {
   User,
   HeartHandshake,
   Search,
-  ChevronRight
+  ChevronRight,
+  Gamepad2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { isHomeroomTeacher, isAnyStudent } from '../utils/permissionUtils';
@@ -37,6 +38,7 @@ export type NavTab =
   | 'duty'
   | 'labor'
   | 'extracurricular'
+  | 'entertainment'
   | 'group_competition'
   | 'individual_competition'
   | 'weekly_report'
@@ -198,12 +200,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       iconColor: 'text-pink-700',
       section: 'Hoạt động & Phong trào'
     },
+    { 
+      id: 'entertainment', 
+      num: '12', 
+      label: '12. Giải trí – Trò chơi', 
+      icon: Gamepad2, 
+      badge: '5 Game',
+      badgeColor: 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black shadow-xs text-[10px]',
+      iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      iconColor: 'text-emerald-700',
+      section: 'Hoạt động & Phong trào'
+    },
 
     // Section 4: Thi đua & Xếp hạng
     { 
       id: 'group_competition', 
-      num: '12', 
-      label: '12. Thi đua tổ', 
+      num: '13', 
+      label: '13. Thi đua tổ', 
       icon: Trophy, 
       badge: '4 Tổ',
       badgeColor: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
@@ -213,8 +226,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { 
       id: 'individual_competition', 
-      num: '13', 
-      label: '13. Thi đua cá nhân', 
+      num: '14', 
+      label: '14. Thi đua cá nhân', 
       icon: UserCheck2,
       iconBg: 'bg-purple-50 text-purple-700 border-purple-200',
       iconColor: 'text-purple-700',
@@ -224,8 +237,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Section 5: Tổng kết & Cài đặt
     { 
       id: 'weekly_report', 
-      num: '14', 
-      label: '14. Tổng kết tuần & Sinh hoạt', 
+      num: '15', 
+      label: '15. Tổng kết tuần & Sinh hoạt', 
       icon: CalendarDays,
       iconBg: 'bg-cyan-50 text-cyan-800 border-cyan-200',
       iconColor: 'text-cyan-700',
@@ -233,8 +246,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { 
       id: 'monthly_report', 
-      num: '15', 
-      label: '15. Tổng kết tháng', 
+      num: '16', 
+      label: '16. Tổng kết tháng', 
       icon: FileSpreadsheet,
       iconBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
       iconColor: 'text-emerald-700',
@@ -242,8 +255,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { 
       id: 'analytics', 
-      num: '16', 
-      label: '16. Báo cáo – Thống kê', 
+      num: '17', 
+      label: '17. Báo cáo – Thống kê', 
       icon: PieChart,
       iconBg: 'bg-blue-50 text-blue-700 border-blue-200',
       iconColor: 'text-blue-700',
@@ -251,8 +264,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     ...(isGVCN ? [{ 
       id: 'settings' as NavTab, 
-      num: '17', 
-      label: '17. Cài đặt tiêu chí', 
+      num: '18', 
+      label: '18. Cài đặt tiêu chí', 
       icon: Settings,
       iconBg: 'bg-slate-100 text-slate-700 border-slate-300',
       iconColor: 'text-slate-700',
